@@ -1,47 +1,44 @@
 #include "shell.h"
+
 /**
- * main - our command line interpreter
- * Return: 0 Always Success
+ * main - entry point
+ * @ac: arg count
+ * @av: arg vector
+ *
+ * Return: 0 on success, 1 on error
  */
-int main(void)
+int main(int ac, char **av)
 {
-	int cont;
-	char *buf;
-	char **splitBuf;
-	size_t sizebuf = 1024;
-	size_t inputchar;
+	info_t info[] = { INFO_INIT };
+	int fd = 2;
 
-	buf = malloc(sizebuf * 1);
+	asm ("mov %1, %0\n\t"
+		"add $3, %0"
+		: "=r" (fd)
+		: "r" (fd));
 
-	if (buf == NULL)
+	if (ac == 2)
 	{
-		perror("Unable to allocate buffer"), exit(1);
-	}
-	while (1)
-	{
-		cont++;
-		if (isatty(STDIN_FILENO))
+		fd = open(av[1], O_RDONLY);
+		if (fd == -1)
 		{
-			write(STDOUT_FILENO, "$ ", 2), inputchar = getline(&buf, &sizebuf, stdin);
-			if (inputchar == EOF)
+			if (errno == EACCES)
+				exit(126);
+			if (errno == ENOENT)
 			{
-				write(STDOUT_FILENO, "\n", 1), free(buf), exit(0);
+				_eputs(av[0]);
+				_eputs(": 0: Can't open ");
+				_eputs(av[1]);
+				_eputchar('\n');
+				_eputchar(BUF_FLUSH);
+				exit(127);
 			}
-
-			if (inputchar == 1)
-			{
-				continue;
-			}
-
-			splitBuf = splitInput(buf);
-			enviromentShell(splitBuf), exitof(splitBuf, buf);
-			duplicateProcess(buf, splitBuf);
+			return (EXIT_FAILURE);
 		}
-		else
-		{inputchar = getline(&buf, &sizebuf, stdin);
-			write(STDOUT_FILENO, buf, inputchar);
-			break;
-		}
+		info->readfd = fd;
 	}
-	free(buf);
+	populate_env_list(info);
+	read_history(info);
+	hsh(info, av);
+	return (EXIT_SUCCESS);
 }
